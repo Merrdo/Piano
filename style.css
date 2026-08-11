@@ -54,6 +54,12 @@
      genelinde kaldırır (iOS/Android varsayılan tap-highlight rengi) */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  /* Metin seçimini (mavi seçim balonlarını) uygulama genelinde engeller —
+     bu bir metin editörü değil, dokunmatik bir öğrenme uygulaması */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 html, body {
@@ -180,7 +186,7 @@ p { margin: 0; }
    sabit bir minimum eklenerek "Dersler" gibi başlıkların durum
    çubuğundaki saat/sinyal simgeleriyle çakışması engellenir. */
 .screen:not(.home-screen) {
-  padding-top: max(28px, env(safe-area-inset-top, 0px));
+  padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 14px));
 }
 
 @keyframes screen-fade-in {
@@ -268,29 +274,86 @@ p { margin: 0; }
 }
 
 .hero {
+  position: relative;
   text-align: center;
   padding-top: clamp(24px, 8vh, 56px);
 }
 
-.hero-staff-decoration {
-  width: 100%;
-  height: 100px;
-  margin-bottom: 8px;
-  opacity: 0.9;
+/* Yumuşak, bulanık bir "glow" lekesi — hero'ya derinlik ve enerji katar */
+.hero-glow {
+  position: absolute;
+  top: clamp(-10px, 2vh, 10px);
+  left: 50%;
+  width: 260px;
+  height: 260px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(184, 118, 62, 0.32) 0%, rgba(184, 118, 62, 0.14) 45%, rgba(184, 118, 62, 0) 72%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.hero-svg { width: 100%; height: 100%; }
+[data-theme="dark"] .hero-glow {
+  background: radial-gradient(circle, rgba(216, 151, 96, 0.4) 0%, rgba(216, 151, 96, 0.16) 45%, rgba(216, 151, 96, 0) 72%);
+}
+
+.hero-staff-decoration {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 132px;
+  margin-bottom: 4px;
+}
+
+.hero-svg { width: 100%; height: 100%; overflow: visible; }
 
 .app-title {
-  font-size: 2.4rem;
+  position: relative;
+  z-index: 1;
+  font-size: 2.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.app-subtitle {
-  color: var(--color-ink-soft);
-  margin-top: 8px;
-  font-size: 1rem;
+/* Hero'daki vurgu notaları: bakır renk + hafif gölge, sıradan notalardan ayrışır */
+.note-head-accent {
+  fill: var(--color-copper);
+}
+
+[data-theme="dark"] .note-head-accent {
+  fill: var(--color-copper);
+}
+
+.hero-svg .note-stem {
+  stroke: var(--color-copper);
+}
+
+.hero-svg .clef-symbol {
+  fill: var(--color-ink);
+}
+
+.note-slur {
+  stroke: var(--color-copper);
+  stroke-width: 1.5;
+  opacity: 0.55;
+  stroke-linecap: round;
+}
+
+/* Notaların hafifçe süzülmesi — sayfayı daha canlı ve davetkar kılar */
+.note-float {
+  animation: note-bob 3.2s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes note-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-float { animation: none; }
 }
 
 .stats-strip {

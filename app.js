@@ -53,9 +53,9 @@ function renderHomeScreen() {
   app.innerHTML = `
     <div class="screen home-screen">
       <header class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
         <div class="hero-staff-decoration" id="heroStaffDecoration"></div>
         <h1 class="app-title">Porte</h1>
-        <p class="app-subtitle">Porteyi oku, kulağını eğit, müziği tanı.</p>
       </header>
 
       <div class="stats-strip">
@@ -76,11 +76,21 @@ function renderHomeScreen() {
     </div>
   `;
 
-  // Hero süslemesi: birkaç nota SVG'si
+  // Hero süslemesi: yükselen küçük bir melodi motifi, hafif süzülme animasyonlu
   const heroSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   heroSvg.setAttribute('class', 'hero-svg');
   document.getElementById('heroStaffDecoration').appendChild(heroSvg);
-  renderStaff(heroSvg, { staffPosition: 4, clefId: 'treble', showNote: true, clefScale: 1.6 });
+  renderStaff(heroSvg, {
+    clefId: 'treble',
+    clefScale: 1.5,
+    animated: true,
+    notes: [
+      { staffPosition: -2 },
+      { staffPosition: 2 },
+      { staffPosition: 6 },
+      { staffPosition: 4 },
+    ],
+  });
 
   document.getElementById('startBtn').addEventListener('click', () => {
     state.screen = 'level-select';

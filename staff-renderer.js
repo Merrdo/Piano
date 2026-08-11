@@ -6,7 +6,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const LINE_GAP = 14; // İki çizgi arası mesafe (px)
 const STAFF_WIDTH = 280;
 const STAFF_LEFT_PAD = 70;
-const NOTE_X = 190; // Notanın yatayda konumlanacağı yer
+const NOTE_X = 190; // Notanın yatayda konumlanacağı yer (tekli nota modu)
 
 function el(tag, attrs = {}) {
   const node = document.createElementNS(SVG_NS, tag);
@@ -27,12 +27,55 @@ function clefSymbolPath(clefId) {
   return symbols[clefId] || '𝄞';
 }
 
+// Bir nota kafası + sap + (gerekiyorsa) yardımcı çizgileri belirli bir x konumunda çizer
+function drawNoteAt(g, x, staffPosition, baseY, { className = 'note-head', style = null } = {}) {
+  // Yardımcı çizgiler (ledger lines)
+  if (staffPosition < 0) {
+    for (let p = -2; p >= staffPosition; p -= 2) {
+      const y = staffPositionToY(p, baseY);
+      g.appendChild(el('line', { x1: x - 12, y1: y, x2: x + 12, y2: y, class: 'ledger-line' }));
+    }
+  } else if (staffPosition > 8) {
+    for (let p = 10; p <= staffPosition; p += 2) {
+      const y = staffPositionToY(p, baseY);
+      g.appendChild(el('line', { x1: x - 12, y1: y, x2: x + 12, y2: y, class: 'ledger-line' }));
+    }
+  }
+
+  const noteY = staffPositionToY(staffPosition, baseY);
+  const noteGroup = el('g', style ? { class: `note-float ${className}-wrap`, style } : { class: `note-float ${className}-wrap` });
+
+  const noteHead = el('ellipse', {
+    cx: x, cy: noteY, rx: 8, ry: 6,
+    class: className,
+    transform: `rotate(-20 ${x} ${noteY})`,
+  });
+  noteGroup.appendChild(noteHead);
+
+  const stemUp = staffPosition < 4;
+  const stemX = stemUp ? x + 7.5 : x - 7.5;
+  const stemY2 = stemUp ? noteY - 32 : noteY + 32;
+  noteGroup.appendChild(el('line', {
+    x1: stemX, y1: noteY, x2: stemX, y2: stemY2,
+    class: 'note-stem',
+  }));
+
+  g.appendChild(noteGroup);
+  return { x, y: noteY, stemUp, stemX, stemTopY: stemY2 };
+}
+
 /**
- * Porteyi ve üzerinde bir notayı SVG olarak render eder.
- * @param {SVGElement} container - İçine çizilecek <svg> elementi
- * @param {Object} opts - { staffPosition, clefId, showNote }
+ * Porteyi ve üzerinde nota(lar)ı SVG olarak render eder.
+ * @param {SVGElement} svgEl - İçine çizilecek <svg> elementi
+ * @param {Object} opts
+ *   - staffPosition: tekli nota modu (quiz ekranı) için nota konumu
+ *   - clefId: 'treble' | 'bass' | 'alto' | 'tenor'
+ *   - showNote: tekli nota gösterilsin mi
+ *   - clefScale: anahtar sembolü ölçeği
+ *   - notes: [{ staffPosition, x? }] — birden fazla nota (örn. giriş ekranı süslemesi)
+ *   - animated: notes verildiğinde her birine hafif "süzülme" animasyonu ekler
  */
-function renderStaff(svgEl, { staffPosition = null, clefId = 'treble', showNote = true, clefScale = 1 } = {}) {
+function renderStaff(svgEl, { staffPosition = null, clefId = 'treble', showNote = true, clefScale = 1, notes = null, animated = false } = {}) {
   svgEl.innerHTML = '';
   svgEl.setAttribute('viewBox', '0 0 320 200');
   svgEl.setAttribute('width', '100%');
@@ -62,43 +105,32 @@ function renderStaff(svgEl, { staffPosition = null, clefId = 'treble', showNote 
   clefText.textContent = clefSymbolPath(clefId);
   g.appendChild(clefText);
 
-  if (showNote && staffPosition !== null) {
-    // Yardımcı çizgiler (ledger lines) - staff dışına taşan notalar için
-    if (staffPosition < 0) {
-      for (let p = -2; p >= staffPosition; p -= 2) {
-        const y = staffPositionToY(p, baseY);
-        g.appendChild(el('line', {
-          x1: NOTE_X - 12, y1: y, x2: NOTE_X + 12, y2: y,
-          class: 'ledger-line',
-        }));
-      }
-    } else if (staffPosition > 8) {
-      for (let p = 10; p <= staffPosition; p += 2) {
-        const y = staffPositionToY(p, baseY);
-        g.appendChild(el('line', {
-          x1: NOTE_X - 12, y1: y, x2: NOTE_X + 12, y2: y,
-          class: 'ledger-line',
-        }));
-      }
-    }
-
-    // Nota kafası (elips)
-    const noteY = staffPositionToY(staffPosition, baseY);
-    const noteHead = el('ellipse', {
-      cx: NOTE_X, cy: noteY, rx: 8, ry: 6,
-      class: 'note-head',
-      transform: `rotate(-20 ${NOTE_X} ${noteY})`,
+  if (notes && notes.length) {
+    // Çoklu nota modu (dekoratif): notaları yatayda dağıt
+    const usableWidth = STAFF_WIDTH - 60;
+    const startX = STAFF_LEFT_PAD + 40;
+    const spacing = notes.length > 1 ? usableWidth / (notes.length - 1) : 0;
+    const drawn = notes.map((n, i) => {
+      const x = n.x != null ? n.x : startX + i * spacing;
+      const style = animated ? `--float-delay:${(i * 0.35).toFixed(2)}s` : null;
+      return drawNoteAt(g, x, n.staffPosition, baseY, { className: 'note-head note-head-accent', style });
     });
-    g.appendChild(noteHead);
 
-    // Sap (stem) - orta çizginin altındaysa yukarı, üstündeyse aşağı yönlü
-    const stemUp = staffPosition < 4;
-    const stemX = stemUp ? NOTE_X + 7.5 : NOTE_X - 7.5;
-    const stemY2 = stemUp ? noteY - 32 : noteY + 32;
-    g.appendChild(el('line', {
-      x1: stemX, y1: noteY, x2: stemX, y2: stemY2,
-      class: 'note-stem',
-    }));
+    // Ardışık notaları zarif bir "bağ" (slur) çizgisiyle birleştir
+    if (drawn.length > 1) {
+      const topY = Math.min(...drawn.map(d => Math.min(d.y, d.stemTopY))) - 14;
+      const startPt = drawn[0];
+      const endPt = drawn[drawn.length - 1];
+      const midX = (startPt.x + endPt.x) / 2;
+      const slur = el('path', {
+        d: `M ${startPt.x} ${topY + 20} Q ${midX} ${topY} ${endPt.x} ${topY + 20}`,
+        class: 'note-slur',
+        fill: 'none',
+      });
+      g.appendChild(slur);
+    }
+  } else if (showNote && staffPosition !== null) {
+    drawNoteAt(g, NOTE_X, staffPosition, baseY, { className: 'note-head' });
   }
 
   svgEl.appendChild(g);
